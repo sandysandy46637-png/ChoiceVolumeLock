@@ -1,12 +1,13 @@
 package com.prudhviraj.choicevolumelock;
 
 import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.util.Log;
-
-import java.lang.reflect.Method;
 
 import io.github.libxposed.api.XposedInterface;
 import io.github.libxposed.api.XposedModule;
+
+import java.lang.reflect.Method;
 
 public final class ChoiceVolumeModule extends XposedModule {
 
@@ -15,7 +16,7 @@ public final class ChoiceVolumeModule extends XposedModule {
 
     @Override
     public void onModuleLoaded(ModuleLoadedParam param) {
-        log(Log.INFO, TAG, "Choice Volume Lock loaded");
+        log(Log.INFO, TAG, "Module loaded");
     }
 
     @Override
@@ -24,6 +25,13 @@ public final class ChoiceVolumeModule extends XposedModule {
             return;
         }
 
+        log(Log.INFO, TAG, "Choice package loaded");
+
+        hookStreamVolume();
+        hookAudioTrackVolume();
+    }
+
+    private void hookStreamVolume() {
         try {
             Method method = AudioManager.class.getDeclaredMethod(
                     "setStreamVolume",
@@ -34,67 +42,78 @@ public final class ChoiceVolumeModule extends XposedModule {
 
             hook(method)
                     .setPriority(XposedInterface.PRIORITY_HIGHEST)
-                    .setExceptionMode(
-                            XposedInterface.ExceptionMode.PROTECTIVE
-                    )
+                    .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                     .intercept(chain -> {
 
                         int stream = (Integer) chain.getArg(0);
                         int requested = (Integer) chain.getArg(1);
 
                         if (stream == AudioManager.STREAM_MUSIC) {
-                            try {
-                                AudioManager audioManager =
-                                        (AudioManager) chain.getThisObject();
-
-                                int current =
-                                        audioManager.getStreamVolume(
-                                                AudioManager.STREAM_MUSIC
-                                        );
-
-                                if (requested > current) {
-                                    log(
-                                            Log.INFO,
-                                            TAG,
-                                            "BLOCKED Choice volume increase: "
-                                                    + current
-                                                    + " -> "
-                                                    + requested
-                                    );
-
-                                    return null;
-                                }
-
-                                log(
-                                        Log.INFO,
-                                        TAG,
-                                        "Allowed Choice volume change: "
-                                                + current
-                                                + " -> "
-                                                + requested
-                                );
-
-                            } catch (Throwable t) {
-                                log(
-                                        Log.ERROR,
-                                        TAG,
-                                        "Could not read current volume; "
-                                                + "allowing original call",
-                                        t
-                                );
-                            }
+                            log(
+                                    Log.INFO,
+                                    TAG,
+                                    "BLOCK Choice setStreamVolume(STREAM_MUSIC, "
+                                            + requested + ", ...)"
+                            );
+                            return null;
                         }
 
                         return chain.proceed();
                     });
 
-            log(Log.INFO, TAG, "Hook installed for Choice");
+            log(
+                    Log.INFO,
+                    TAG,
+                    "AudioManager.setStreamVolume hook installed"
+            );
 
         } catch (Throwable t) {
             log(
                     Log.ERROR,
                     TAG,
-                    "Hook installation failed",
+                    "Failed installing AudioManager hook",
+                    t
+            );
+        }
+    }
+
+    private void hookAudioTrackVolume() {
+        try {
+            Method method = AudioTrack.class.getDeclaredMethod(
+                    "setVolume",
+                    float.class,
+                    float.class
+            );
+
+            hook(method)
+                    .setPriority(XposedInterface.PRIORITY_HIGHEST)
+                    .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+                    .intercept(chain -> {
+
+                        float left = (Float) chain.getArg(0);
+                        float right = (Float) chain.getArg(1);
+
+                        log(
+                                Log.INFO,
+                                TAG,
+                                "Choice AudioTrack.setVolume("
+                                        + left + ", " + right + ")"
+                        );
+
+                        return chain.proceed();
+                    });
+
+            log(
+                    Log.INFO,
+                    TAG,
+                    "AudioTrack.setVolume hook installed"
+            );
+
+        } catch (Throwable t) {
+            log(
+                    Log.ERROR,
+                    TAG,
+                    "Failed installing AudioTrack hook",
                     t
             );
         }
