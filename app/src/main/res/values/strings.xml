@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Choice Volume Lock</string>
+    <string name="app_description">LSPosed module that prevents Choice Delivery from changing STREAM_MUSIC volume.</string>
+</resources>
