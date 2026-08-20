@@ -29,6 +29,7 @@ public final class ChoiceVolumeModule extends XposedModule {
 
         hookStreamVolume();
         hookAudioTrackVolume();
+        hookAudioTrackStereoVolume();
     }
 
     private void hookStreamVolume() {
@@ -61,11 +62,7 @@ public final class ChoiceVolumeModule extends XposedModule {
                         return chain.proceed();
                     });
 
-            log(
-                    Log.INFO,
-                    TAG,
-                    "AudioManager.setStreamVolume hook installed"
-            );
+            log(Log.INFO, TAG, "AudioManager hook installed");
 
         } catch (Throwable t) {
             log(
@@ -81,7 +78,6 @@ public final class ChoiceVolumeModule extends XposedModule {
         try {
             Method method = AudioTrack.class.getDeclaredMethod(
                     "setVolume",
-                    float.class,
                     float.class
             );
 
@@ -90,14 +86,13 @@ public final class ChoiceVolumeModule extends XposedModule {
                     .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                     .intercept(chain -> {
 
-                        float left = (Float) chain.getArg(0);
-                        float right = (Float) chain.getArg(1);
+                        float gain = (Float) chain.getArg(0);
 
                         log(
                                 Log.INFO,
                                 TAG,
-                                "Choice AudioTrack.setVolume("
-                                        + left + ", " + right + ")"
+                                "Choice AudioTrack.setVolume(gain="
+                                        + gain + ")"
                         );
 
                         return chain.proceed();
@@ -113,7 +108,51 @@ public final class ChoiceVolumeModule extends XposedModule {
             log(
                     Log.ERROR,
                     TAG,
-                    "Failed installing AudioTrack hook",
+                    "Failed installing AudioTrack.setVolume hook",
+                    t
+            );
+        }
+    }
+
+    private void hookAudioTrackStereoVolume() {
+        try {
+            Method method = AudioTrack.class.getDeclaredMethod(
+                    "setStereoVolume",
+                    float.class,
+                    float.class
+            );
+
+            hook(method)
+                    .setPriority(XposedInterface.PRIORITY_HIGHEST)
+                    .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+                    .intercept(chain -> {
+
+                        float left = (Float) chain.getArg(0);
+                        float right = (Float) chain.getArg(1);
+
+                        log(
+                                Log.INFO,
+                                TAG,
+                                "Choice AudioTrack.setStereoVolume(left="
+                                        + left
+                                        + ", right="
+                                        + right + ")"
+                        );
+
+                        return chain.proceed();
+                    });
+
+            log(
+                    Log.INFO,
+                    TAG,
+                    "AudioTrack.setStereoVolume hook installed"
+            );
+
+        } catch (Throwable t) {
+            log(
+                    Log.ERROR,
+                    TAG,
+                    "Failed installing AudioTrack.setStereoVolume hook",
                     t
             );
         }
